@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hedge Fund Performance — March &amp; Q1 2026</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f6f3;
+      color: #1a1a18;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .page { max-width: 860px; margin: 0 auto; }
+
+    /* Header */
+    .header { margin-bottom: 1.75rem; }
+    .header h1 { font-size: 22px; font-weight: 600; color: #1a1a18; line-height: 1.3; }
+    .header p { font-size: 13px; color: #6b6b65; margin-top: 5px; }
+
+    /* Summary cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 560px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .metric {
+      background: #fff;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    .metric .lbl { font-size: 11px; color: #888780; margin-bottom: 4px; }
+    .metric .val { font-size: 20px; font-weight: 600; }
+    .val.up { color: #1D9E75; }
+    .val.dn { color: #D85A30; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .tab {
+      font-size: 13px;
+      padding: 5px 16px;
+      border-radius: 20px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      cursor: pointer;
+      background: transparent;
+      color: #6b6b65;
+      transition: all 0.15s;
+    }
+    .tab:hover { background: #eeeee8; }
+    .tab.active { background: #1a1a18; color: #fff; border-color: transparent; }
+
+    /* Legend */
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 1rem; font-size: 12px; color: #6b6b65; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* Section labels */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #888780;
+      margin-bottom: 8px;
+    }
+    .chart-section { margin-bottom: 1.5rem; }
+
+    /* Bar rows */
+    .bar-list { display: flex; flex-direction: column; gap: 3px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .fund-name {
+      font-size: 12px;
+      color: #1a1a18;
+      width: 175px;
+      flex-shrink: 0;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bar-track { flex: 1; height: 20px; display: flex; align-items: center; }
+    .bar-fill { height: 14px; border-radius: 2px; min-width: 2px; transition: width 0.3s ease; }
+    .bar-val { font-size: 11px; margin-left: 6px; font-weight: 600; white-space: nowrap; }
+
+    /* Scatter */
+    .scatter-wrap { position: relative; width: 100%; height: 420px; }
+
+    /* Footer */
+    .footer {
+      font-size: 11px;
+      color: #888780;
+      border-top: 0.5px solid rgba(0,0,0,0.1);
+      padding-top: 10px;
+      margin-top: 1.5rem;
+    }
+
+    /* Responsive bar names */
+    @media (max-width: 480px) {
+      .fund-name { width: 110px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Hedge fund performance — March &amp; Q1 2026</h1>
+    <p>Net returns across 70 funds &nbsp;·&nbsp; Source: Bloomberg &nbsp;·&nbsp; *Caxton through March 20</p>
+  </div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="lbl">Funds in green (March)</div><div class="val up" id="m-winners">—</div></div>
+    <div class="metric"><div class="lbl">Funds in red (March)</div><div class="val dn" id="m-losers">—</div></div>
+    <div class="metric"><div class="lbl">Best March return</div><div class="val up" id="m-best">—</div></div>
+    <div class="metric"><div class="lbl">Worst March return</div><div class="val dn" id="m-worst">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchView('scatter', this)">Scatter view</button>
+    <button class="tab" onclick="switchView('march', this)">March</button>
+    <button class="tab" onclick="switchView('ytd', this)">Q1 YTD</button>
+  </div>
+
+  <!-- Scatter -->
+  <div id="scatter-view">
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#1D9E75;"></span>Both periods positive</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#D85A30;"></span>Both periods negative</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#EF9F27;"></span>Mixed</span>
+    </div>
+    <div class="scatter-wrap">
+      <canvas id="scatterChart" role="img" aria-label="Scatter chart of hedge fund March vs Q1 YTD 2026 returns. Hover dots to see fund names."></canvas>
+    </div>
+  </div>
+
+  <!-- Bar chart -->
+  <div id="bar-view" style="display:none;">
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#1D9E75;"></span>Positive</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#D85A30;"></span>Negative</span>
+    </div>
+    <div class="chart-section">
+      <div class="section-label" id="winners-label">Winners</div>
+      <div class="bar-list" id="winners-list"></div>
+    </div>
+    <div class="chart-section" style="margin-top:1.75rem;">
+      <div class="section-label" id="losers-label">Losers</div>
+      <div class="bar-list" id="losers-list"></div>
+    </div>
+  </div>
+
+  <div class="footer">All returns net of fees &nbsp;·&nbsp; Data via Bloomberg reporting &nbsp;·&nbsp; Interactive chart for LinkedIn newsletter</div>
+</div>
+
+<script>
+const funds = [
+  {name:"Andurand Commodities",       strat:"Commodities",      march:30.6,  ytd:31.1},
+  {name:"36 South Kohinoor",          strat:"Long Vol",          march:8.6,   ytd:18.6},
+  {name:"Kepos Alpha",                strat:"Systematic Macro",  march:7.5,   ytd:9.3},
+  {name:"CFM Cumulus",                strat:"Quant",             march:6.0,   ytd:6.7},
+  {name:"CFM Stratus",                strat:"Quant Multistrat",  march:6.0,   ytd:5.5},
+  {name:"Two Seas Global",            strat:"Event-Driven",      march:5.0,   ytd:12.0},
+  {name:"Saba Capital",               strat:"Credit RV",         march:4.4,   ytd:7.3},
+  {name:"DE Shaw Oculus",             strat:"Multistrat",        march:3.9,   ytd:7.0},
+  {name:"ADAPT",                      strat:"Relative Value",    march:3.3,   ytd:7.5},
+  {name:"Graham Tactical Trend",      strat:"Quant",             march:3.1,   ytd:13.1},
+  {name:"Two Sigma Absolute Return",  strat:"Multistrat",        march:3.0,   ytd:3.7},
+  {name:"Two Sigma Spectrum",         strat:"Multistrat",        march:2.5,   ytd:3.0},
+  {name:"DE Shaw Composite",          strat:"Multistrat",        march:2.2,   ytd:4.9},
+  {name:"Rokos",                      strat:"Macro",             march:2.1,   ytd:4.7},
+  {name:"Citadel Tactical Trading",   strat:"Multistrat",        march:1.8,   ytd:5.3},
+  {name:"Renaissance RIDA",           strat:"Quant",             march:1.2,   ytd:8.0},
+  {name:"Renaissance RIEF",           strat:"Quant",             march:0.9,   ytd:-0.8},
+  {name:"Citadel Equities",           strat:"Equity",            march:0.7,   ytd:2.9},
+  {name:"Glazer Enhanced",            strat:"Event-Driven",      march:0.6,   ytd:1.7},
+  {name:"Winton",                     strat:"Multistrat",        march:0.3,   ytd:6.7},
+  {name:"Centiva",                    strat:"Multistrat",        march:0.1,   ytd:3.9},
+  {name:"Schonfeld Fundamental Eq",   strat:"Equity",            march:0.0,   ytd:1.6},
+  {name:"Schonfeld Strategic Partners",strat:"Multistrat",       march:0.0,   ytd:0.9},
+  {name:"Boussard & Gavaudan",        strat:"Event-Driven",      march:0.0,   ytd:3.9},
+  {name:"Kite Lake Special Opps",     strat:"Event-Driven",      march:-0.1,  ytd:2.5},
+  {name:"Modular Asian Macro",        strat:"Macro",             march:-0.5,  ytd:2.9},
+  {name:"Jain Global",                strat:"Multistrat",        march:-0.5,  ytd:-2.7},
+  {name:"Point72",                    strat:"Multistrat",        march:-0.7,  ytd:3.8},
+  {name:"North Rock",                 strat:"Equity",            march:-0.7,  ytd:2.1},
+  {name:"Shiprock",                   strat:"Distressed",        march:-1.0,  ytd:6.8},
+  {name:"Millennium",                 strat:"Multistrat",        march:-1.2,  ytd:1.0},
+  {name:"Walleye",                    strat:"Multistrat",        march:-1.3,  ytd:-2.6},
+  {name:"Man 1783",                   strat:"Multistrat",        march:-1.6,  ytd:4.2},
+  {name:"Greenlight",                 strat:"Equity",            march:-1.8,  ytd:6.5},
+  {name:"Mission Crest Dynamic",      strat:"Multistrat",        march:-1.8,  ytd:6.9},
+  {name:"Verition",                   strat:"Multistrat",        march:-1.9,  ytd:-0.4},
+  {name:"Brummer Multi-Strategy",     strat:"Multistrat",        march:-1.9,  ytd:4.3},
+  {name:"Citadel Wellington",         strat:"Multistrat",        march:-1.9,  ytd:1.0},
+  {name:"LMR",                        strat:"Multistrat",        march:-2.4,  ytd:-0.3},
+  {name:"Pinpoint Multi-Strategy",    strat:"Multistrat",        march:-2.5,  ytd:4.0},
+  {name:"Marshall Wace MN TOPS",      strat:"Systematic",        march:-2.5,  ytd:-0.3},
+  {name:"Graham Quant Macro",         strat:"Quant",             march:-2.9,  ytd:6.6},
+  {name:"Tiger Global Crossover",     strat:"Equity/Venture",    march:-3.2,  ytd:-1.2},
+  {name:"Brevan Howard Alpha",        strat:"Multistrat",        march:-3.9,  ytd:0.3},
+  {name:"Discovery",                  strat:"Macro",             march:-4.1,  ytd:5.7},
+  {name:"Viking Global",              strat:"Equity",            march:-4.1,  ytd:-4.6},
+  {name:"Dymon",                      strat:"Multistrat",        march:-4.3,  ytd:6.0},
+  {name:"Balyasny",                   strat:"Multistrat",        march:-4.3,  ytd:-3.8},
+  {name:"ExodusPoint",                strat:"Multistrat",        march:-4.5,  ytd:-2.0},
+  {name:"Coatue",                     strat:"Equity",            march:-4.8,  ytd:-3.5},
+  {name:"Maverick Fund",              strat:"Equity",            march:-5.0,  ytd:-1.5},
+  {name:"FengHe Asia",                strat:"Equity",            march:-5.3,  ytd:11.5},
+  {name:"Marshall Wace Eureka",       strat:"Equity",            march:-5.3,  ytd:0.8},
+  {name:"Graham Absolute Return",     strat:"Macro",             march:-6.1,  ytd:-4.7},
+  {name:"Pharo Macro",                strat:"Macro",             march:-6.2,  ytd:4.4},
+  {name:"Brevan Howard Master",       strat:"Macro",             march:-6.6,  ytd:-1.1},
+  {name:"RV Capital Enhanced",        strat:"Macro",             march:-6.9,  ytd:-5.8},
+  {name:"Tiger Global",               strat:"Equity",            march:-7.3,  ytd:-10.5},
+  {name:"Maverick Long Enhanced",     strat:"Equity",            march:-8.1,  ytd:-4.5},
+  {name:"Citadel Global Fixed Income",strat:"Fixed Income",      march:-8.2,  ytd:-5.5},
+  {name:"Quantedge Global",           strat:"Quant",             march:-8.4,  ytd:12.7},
+  {name:"Taula",                      strat:"Macro",             march:-8.6,  ytd:-7.6},
+  {name:"EDL",                        strat:"Macro",             march:-11.2, ytd:-7.5},
+  {name:"Haidar Jupiter",             strat:"Macro",             march:-12.0, ytd:13.4},
+  {name:"Caxton Macro*",              strat:"Macro",             march:-15.0, ytd:null},
+];
+
+let currentField = 'march';
+let scatterChart = null;
+
+function switchView(v, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if (v === 'scatter') {
+    document.getElementById('bar-view').style.display = 'none';
+    document.getElementById('scatter-view').style.display = 'block';
+    renderScatter();
+  } else {
+    document.getElementById('bar-view').style.display = 'block';
+    document.getElementById('scatter-view').style.display = 'none';
+    currentField = v;
+    renderBars();
+  }
+}
+
+function renderBars() {
+  const sorted = [...funds]
+    .filter(f => f[currentField] !== null)
+    .sort((a, b) => b[currentField] - a[currentField]);
+  const winners = sorted.filter(f => f[currentField] >= 0);
+  const losers  = sorted.filter(f => f[currentField] < 0);
+  const maxVal  = Math.max(...sorted.map(f => Math.abs(f[currentField])));
+
+  document.getElementById('winners-label').textContent = `Winners (${winners.length})`;
+  document.getElementById('losers-label').textContent  = `Losers (${losers.length})`;
+
+  function buildList(arr, containerId, color) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    arr.forEach(f => {
+      const pct = (Math.abs(f[currentField]) / maxVal * 100).toFixed(1);
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `
+        <div class="fund-name" title="${f.name}">${f.name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${color};"></div>
+          <span class="bar-val" style="color:${color};">${f[currentField] > 0 ? '+' : ''}${f[currentField].toFixed(1)}%</span>
+        </div>`;
+      el.appendChild(row);
+    });
+  }
+  buildList(winners, 'winners-list', '#1D9E75');
+  buildList(losers,  'losers-list',  '#D85A30');
+}
+
+function renderScatter() {
+  if (scatterChart) { scatterChart.destroy(); scatterChart = null; }
+  const data = funds.filter(f => f.ytd !== null).map(f => ({
+    x: f.march,
+    y: f.ytd,
+    name: f.name,
+    color: f.march >= 0 && f.ytd >= 0 ? '#1D9E75'
+         : f.march < 0  && f.ytd < 0  ? '#D85A30'
+         : '#EF9F27'
+  }));
+
+  scatterChart = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Funds',
+        data: data.map(d => ({ x: d.x, y: d.y })),
+        pointBackgroundColor: data.map(d => d.color),
+        pointBorderColor:     data.map(d => d.color),
+        pointRadius: 6,
+        pointHoverRadius: 9,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = data[ctx.dataIndex];
+              return `${d.name}: March ${d.x > 0 ? '+' : ''}${d.x.toFixed(1)}%,  YTD ${d.y > 0 ? '+' : ''}${d.y.toFixed(1)}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'March return (%)', color: '#888780', font: { size: 12 } },
+          grid:  { color: 'rgba(136,135,128,0.15)' },
+          ticks: { color: '#888780', callback: v => v + '%' }
+        },
+        y: {
+          title: { display: true, text: 'Q1 YTD return (%)', color: '#888780', font: { size: 12 } },
+          grid:  { color: 'rgba(136,135,128,0.15)' },
+          ticks: { color: '#888780', callback: v => v + '%' }
+        }
+      }
+    }
+  });
+}
+
+function initSummary() {
+  const vals = funds.map(f => f.march);
+  document.getElementById('m-winners').textContent = vals.filter(v => v >= 0).length;
+  document.getElementById('m-losers').textContent  = vals.filter(v => v < 0).length;
+  document.getElementById('m-best').textContent    = '+' + Math.max(...vals).toFixed(1) + '%';
+  document.getElementById('m-worst').textContent   = Math.min(...vals).toFixed(1) + '%';
+}
+
+initSummary();
+renderScatter();
+</script>
+</body>
+</html>
